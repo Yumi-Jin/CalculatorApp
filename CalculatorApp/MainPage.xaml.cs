@@ -15,15 +15,18 @@ namespace CalculatorApp
         {
             InitializeComponent();
         }
+
         int state = 0;
         //0: nothing, 1: number, 2: operator pressed, 3: negative
+        ArrayList operands = new ArrayList();
+        int opindex = 0;
 
         void OnButtonClicked(object sender, EventArgs e)
         {
             string tempEquation = this.equation.Text;
             string pressed = ((Button)sender).Text;
 
-            switch (((Button)sender).Text)
+            switch (pressed)
             {
                 case "÷":
                 case "*":
@@ -34,20 +37,36 @@ namespace CalculatorApp
                         // Sets the state to be an operator pressed
                         // Add to the equation label
                         state = 2;
+                        operands.Add(pressed); // creates a new element in the array list
+                        opindex++;
                         this.equation.Text = tempEquation + pressed;
                     }
                     else if (state == 2) // if the character previously entered is an operator
                     {
                         // Replaces the previous operator (excluding the negative sign)
+                        operands[opindex] = pressed; // replaces the last element in the arraylist
                         this.equation.Text = tempEquation.Substring(0, tempEquation.Length - 1) + pressed;
                     }
                     break;
                 case "-":
                     Console.WriteLine("Case -");
-                    if (state != 3) // if equation isn't negative
+                    if ((state == 0) || (state == 2)) // previous isn't an operator or has nothing
                     {
                         state = 3; //set to negative
                         this.equation.Text = tempEquation + pressed;
+
+                        operands.Add(pressed);
+                        opindex++;
+                    }
+                    else if (state == 1) // if previous was a number
+                    {
+                        // Sets the state to be an operator pressed
+                        // Add to the equation label
+                        state = 2;
+                        operands.Add(pressed); // creates a new element in the array list
+                        opindex++;
+                        this.equation.Text = tempEquation + pressed;
+
                     }
                     break;
                 case "=":
@@ -56,82 +75,50 @@ namespace CalculatorApp
                         if (!(state == 1)) // if equation ended with an operator
                         {
                             this.equation.Text = tempEquation.Substring(0, tempEquation.Length - 1);
+                            operands.RemoveAt(operands.Count - 1);
                         }
                         state = 0;
                         Console.WriteLine("Case =");
-                        var result = Calculate.ConvertToArray(this.equation.Text);
-                        //this.equation.Text = result;
+
+                        // Calculates the equation
+                        var result = Calculate.InfixToPrefix(operands);
+
                         this.equation.Text = "";
                         this.answer.Text = result;
+
+
+                        foreach(string token in operands)
+                        {
+                            Console.WriteLine("token: " + token);
+                        }
+
+                        // clears out the array list
+                        opindex = 0;
+                        operands.Clear();
                     }
                     break;
                 default:
+                    if ((state == 3)|| (state == 1)) // if it's negative or a number was pressed
+                    {
+                        operands[opindex - 1] = operands[opindex - 1] + pressed;
+                    }
+                    else
+                    {
+                        operands.Add(pressed);
+                        opindex++;
+                    }
                     state = 1;
+
                     Console.WriteLine("Numbers");
                     this.equation.Text = tempEquation + pressed;
                     break;
             }
         }
     }
+
+        
     public static class Calculate
     {
-        public static string ConvertToArray(string equation)
-        {
-            string eq = equation;
-            ArrayList operands = new ArrayList();
-            string previous = "";
-            int opindex = 0;
-            bool negative = false;
-
-            //separate all the numbers as elements
-            //save all 
-
-            for (int counter = 0; counter < equation.Length; counter++)
-            {
-                string current = equation[counter].ToString();
-                Console.WriteLine(current);
-                switch (current)
-                {
-                    case "÷":
-                    case "*":
-                    case "+":
-                        negative = false;
-                        opindex++;
-                        operands.Add(current);
-                        break;
-                    case "-":
-                        if (isOperater(previous) || previous.Equals(""))
-                        {
-                            negative = true;
-                        }
-                        if (!previous.Equals(""))
-                        {
-                            opindex++;
-                        }
-                        operands.Add(current);
-                        break;
-                    default: // if current character is a number
-                        if (negative || !(isOperater(previous) || previous.Equals(""))) // if previous is a number or negative
-                        {
-                            negative = false;
-                            operands[opindex] = operands[opindex] + current;
-                        }
-                        else
-                        {
-                            if (!previous.Equals(""))
-                            {
-                                opindex++;
-                            }
-                            operands.Add(current);
-                        }
-                        break;
-                }
-                previous = current;
-            }
-
-            return InfixToPrefix(operands);
-        }
-
         public static string InfixToPrefix(ArrayList operands)
         {
             string answer = "";
@@ -141,6 +128,7 @@ namespace CalculatorApp
             {
                 return (string)operands[0];
             }
+
             operands.Reverse();
 
             Stack<String> output = new Stack<String>();
@@ -167,21 +155,30 @@ namespace CalculatorApp
                         }
                         else
                         {
-                            output.Push(op.Pop());
+                            temp = op.Pop();
+                            output.Push(temp);
                         }
                     }
                 }
             }
-            foreach (string token in op)
+            int stacksize = op.Count();
+
+            for (int i = 0; i < stacksize; i++) //pop out all the tokens in op stack
             {
-                output.Push(op.Pop());
+                temp = op.Pop();
+                output.Push(temp);
             }
 
-            foreach(string token in output)
+            foreach(string token in output) //pop out all the tokens in the output into an arraylist
             {
                 prefix.Add(token);
             }
 
+
+            foreach (string token in prefix)
+            {
+                Console.WriteLine("token: " + token);
+            }
 
             return calculatePrefix(prefix);
         }
@@ -190,17 +187,20 @@ namespace CalculatorApp
         {
             string answer = "";
             Stack<double> stack = new Stack<double>();
+            tokens.Reverse();
             foreach (string token in tokens)
             {
-                if (!isOperater(token))
+                if (!isOperater(token)) //checks if it is an operand
                 {
-                    stack.Push(int.Parse(token));
+                    double operand = double.Parse(token);
+                    stack.Push(operand);
                 }
                 else
                 {
                     double ans = 0;
                     double op1 = stack.Pop();
                     double op2 = stack.Pop();
+
                     switch (token)
                     {
                         case "+":
@@ -220,18 +220,16 @@ namespace CalculatorApp
                             break;
                     }
                     stack.Push(ans);
-
                 }
-
-
             }
 
-            double a = stack.Pop();
+            double a = stack.Peek();
+            stack.Clear();
             answer = a.ToString();
 
             return answer;
         }
-
+        
         private static int getPriority(string s)
         {
             switch (s)
@@ -259,5 +257,6 @@ namespace CalculatorApp
                     return false;
             }
         }
+        
     }
 }
